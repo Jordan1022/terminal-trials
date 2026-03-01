@@ -56,7 +56,7 @@ TT_NO_RAW_MENU=1 npm run summon
   - `hint` for help
   - `show` to view reference in guided practice
   - `skip` (or `next` in guided mode) to move on
-- Linecraft shortcut drills capture real keypresses in interactive terminals.
+- Linecraft drills are context-based: you edit a mock command line with real keypresses and the game validates the resulting cursor/text state.
 
 ## Sandbox modes
 - Real filesystem sandbox zones:
