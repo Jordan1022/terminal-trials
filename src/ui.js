@@ -75,6 +75,47 @@ function banner() {
   ].join('\n');
 }
 
+function zoneBadge(moduleId) {
+  const badges = {
+    trailhead: ['[Trailhead]', 'Path Scout'],
+    linecraft: ['[Linecraft]', 'Cursor Ninja'],
+    pipeline: ['[Pipeline]', 'Text Smith'],
+    workflow: ['[Workflow]', 'Ops Pilot'],
+    tmux: ['[tmux]', 'Pane Tactician'],
+    scripting: ['[Scripting]', 'Automation Mage'],
+    jobcontrol: ['[Job Control]', 'Process Wrangler'],
+    ssh: ['[SSH]', 'Remote Runner'],
+    vim: ['[vim]', 'Modal Monk'],
+    dotfiles: ['[Dotfiles]', 'Shell Stylist']
+  };
+  return badges[moduleId] || ['[Terminal]', 'Command Adventurer'];
+}
+
+function mascot(pose = 'idle') {
+  const poses = {
+    idle: ['   /\\_/\\   ', '  ( o.o )  ', '   > ^ <   '],
+    coach: ['   /\\_/\\   ', '  ( ^.^ )  ', '  /|===|\\  '],
+    mission: ['   /\\_/\\   ', '  ( >.< )  ', '  /| ! |\\  '],
+    sandbox: ['   /\\_/\\   ', '  ( o_o )  ', '  /|_|_|\\  '],
+    success: ['   /\\_/\\   ', '  ( ^o^ )  ', ' \\_\\_/_/_/ '],
+    alert: ['   /\\_/\\   ', '  ( O_O )  ', '   > ! <   ']
+  };
+  return poses[pose] || poses.idle;
+}
+
+function flavorArt({ moduleId = null, pose = 'idle', caption = '' } = {}) {
+  const [badgeTop, badgeBottom] = zoneBadge(moduleId);
+  const cat = mascot(pose);
+  const badgeColor = moduleId ? 'cyan' : 'magenta';
+  const poseColor = pose === 'success' ? 'green' : pose === 'mission' ? 'yellow' : 'blue';
+  const lines = [
+    `${paint(cat[0], poseColor)}   ${paint(badgeTop, badgeColor)}`,
+    `${paint(cat[1], poseColor)}   ${paint(badgeBottom, 'white')}`,
+    `${paint(cat[2], poseColor)}   ${dim(caption || 'Terminal companion online')}`
+  ];
+  return lines.join('\n');
+}
+
 module.exports = {
   paint,
   bold,
@@ -84,5 +125,6 @@ module.exports = {
   line,
   box,
   progressBar,
-  banner
+  banner,
+  flavorArt
 };
