@@ -1,54 +1,83 @@
 # Terminal Trials
 
-Terminal Trials is a gamified CLI training app focused on practical shell and tmux skill growth.
+Welcome to your command-line training RPG.
 
-## What you get
-- Campaign map with progressive learning zones
-- Guided training (instruction + practice) before certification quizzes
-- Live sandbox training in command-heavy zones (Trailhead, Pipeline, Scripting, Dotfiles)
-- Mocked sandbox training for system/remote workflows (Workflow, tmux, SSH)
-- Themed ASCII mascot + zone flavor art across screens for visual feedback
-- Command challenges with hints and solution explanations
-- Flash drills for speed reps
-- Rank + XP progression
-- Saved progress in local JSON
+Terminal Trials turns shell learning into a campaign: train hands-on, pass certifications, unlock new zones, and rank up from newbie to terminal wizard.
 
-## Skill zones
-- Trailhead: navigation and filesystem basics
-- Linecraft Dojo: readline cursor movement, line cutting, and multi-line editor flow
-- Pipeline Forge: grep/rg, pipes, sorting, counting, redirection
-- Ops Deck: process control, chmod, tar, env vars
-- Citadel: tmux sessions, panes, copy-mode multi-line selection, and workflow control
+## Why this is fun
+- You are the operator. The terminal is your world map.
+- Each zone has themed visuals, an ASCII companion, and focused skills.
+- You train first (guided, low pressure), then certify (XP + unlocks).
+- Some zones run real command sandboxes. Others run safe mocked systems.
 
-## Run it
+## Launch the game
 ```bash
 cd /Users/jordanallen/Documents/Goodly/terminal-trials
 npm run summon
 ```
 
-`npm start` still works as an alias.
+Also supported:
+- `npm start` (alias)
+- `npm run gauntlet` (alias)
 
-## Save file
-`save/progress.json`
+## Gameplay loop
+1. Enter a zone.
+2. Run Guided Training (learn by doing).
+3. Start Certification Quiz when ready.
+4. Earn XP, clear zone, unlock next zone.
+5. Use Flash Drills to build speed.
+
+## Your first 5 minutes
+1. Launch with `npm run summon`.
+2. Choose `Start from the beginning` on first run.
+3. Enter `Trailhead`.
+4. Complete Guided Training.
+5. Start certification right away.
+
+## Campaign zones
+- Trailhead: Navigation
+- Linecraft Dojo: Cursor and line editing shortcuts
+- Pipeline Forge: Text search, pipes, filtering, counts
+- Ops Deck: Process, permissions, archives, env vars
+- Citadel: tmux sessions, panes, copy mode
+- Script Forge: Bash scripting fundamentals
+- Command Tower: Job control and background process flow
+- Outpost: SSH and remote operations
+- Vim Sanctum: Modal editing fundamentals
+- Home Base: Dotfiles and shell environment setup
 
 ## Controls
-- Use numeric menu options
-- Arrow-key navigation works in interactive terminals (`Up/Down + Enter`) for launch and menu screens
-- If your terminal has raw-input issues, force typed menus with: `TT_NO_RAW_MENU=1 npm run summon`
-- During missions:
-  - Type a command to answer
-  - Type `hint` for help
-  - Type `skip` to reveal solution and continue
-  - In Linecraft shortcut missions, press the actual keys (fallback to typed answer in non-interactive terminals)
+- Menus: arrow keys (`Up/Down + Enter`) or number keys
+- If raw terminal input is flaky:
+```bash
+TT_NO_RAW_MENU=1 npm run summon
+```
+- During training/challenges:
+  - `hint` for help
+  - `show` to view reference in guided practice
+  - `skip` (or `next` in guided mode) to move on
+- Linecraft shortcut drills capture real keypresses in interactive terminals.
 
-## Recommended workflow
-1. Run each zone's Guided Training first.
-2. Start that zone's certification quiz for XP/unlocks.
-3. Use Flash Drills after each zone.
-4. Keep Codex open while practicing in your real terminal.
+## Sandbox modes
+- Real filesystem sandbox zones:
+  - Trailhead, Pipeline, Script Forge, Home Base
+- Mocked systems sandbox zones:
+  - Ops Deck (process simulation)
+  - Citadel (tmux session simulation)
+  - Outpost (SSH/remote simulation)
 
-## Sandbox Training
-- In supported zones, practice runs inside a temporary filesystem sandbox and executes your real commands.
-- In mock-supported zones, commands run against a safe simulated environment (processes/sessions/remote host state).
-- The app shows the sandbox path during training.
-- The sandbox is cleaned up automatically when training ends.
+All sandboxes are temporary and auto-cleaned after training.
+
+## Save data
+- Save file: `save/progress.json`
+- Tracks XP, rank, zone unlocks, training completion, and quiz progress.
+
+## What you get
+- Guided instruction before quizzes
+- Practical command execution in sandboxed environments
+- Visual terminal UI with themed ASCII art
+- Progressive unlocks + rank progression
+- Fast repeat mode via Flash Drills and Codex
+
+## Pro tip
+Keep a second terminal open and try commands there too. The fastest progress comes from doing each command both in-game and in your real shell.
