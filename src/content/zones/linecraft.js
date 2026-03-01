@@ -11,6 +11,10 @@ const zone = {
       objective: 'Use the readline shortcut for beginning-of-line.',
       inputMode: 'keypress',
       acceptedKeySequences: [['ctrl+a']],
+      lineContext: {
+        initial: { line: 'git commit -m "hotfix release"', cursor: 30 },
+        expected: { line: 'git commit -m "hotfix release"', cursor: 0 }
+      },
       accepted: [/^ctrl\+a$/i, /^ctrl-a$/i],
       hint: 'Control key + first letter.',
       solution: 'Ctrl+A',
@@ -22,6 +26,10 @@ const zone = {
       objective: 'Use the readline shortcut for end-of-line.',
       inputMode: 'keypress',
       acceptedKeySequences: [['ctrl+e']],
+      lineContext: {
+        initial: { line: 'npm run build -- --watch', cursor: 8 },
+        expected: { line: 'npm run build -- --watch', cursor: 24 }
+      },
       accepted: [/^ctrl\+e$/i, /^ctrl-e$/i],
       hint: 'Control key + fifth letter.',
       solution: 'Ctrl+E',
@@ -33,6 +41,10 @@ const zone = {
       objective: 'Use the backward-word shortcut.',
       inputMode: 'keypress',
       acceptedKeySequences: [['alt+b'], ['escape', 'b']],
+      lineContext: {
+        initial: { line: 'tar -czf backup.tgz project/', cursor: 28 },
+        expected: { line: 'tar -czf backup.tgz project/', cursor: 20 }
+      },
       accepted: [/^alt\+b$/i, /^option\+b$/i, /^meta\+b$/i, /^esc\s+b$/i],
       hint: 'Commonly Alt/Option plus one letter.',
       solution: 'Alt+B (or Option+B on macOS terminals)',
@@ -44,6 +56,10 @@ const zone = {
       objective: 'Use the forward-word shortcut.',
       inputMode: 'keypress',
       acceptedKeySequences: [['alt+f'], ['escape', 'f']],
+      lineContext: {
+        initial: { line: 'rsync -avz build/ deploy@host:/var/www/', cursor: 11 },
+        expected: { line: 'rsync -avz build/ deploy@host:/var/www/', cursor: 17 }
+      },
       accepted: [/^alt\+f$/i, /^option\+f$/i, /^meta\+f$/i, /^esc\s+f$/i],
       hint: 'Same modifier as word-left, different letter.',
       solution: 'Alt+F (or Option+F on macOS terminals)',
@@ -55,6 +71,10 @@ const zone = {
       objective: 'Use the backward-kill-word shortcut.',
       inputMode: 'keypress',
       acceptedKeySequences: [['ctrl+w']],
+      lineContext: {
+        initial: { line: 'docker run ubuntu sllep', cursor: 23 },
+        expected: { line: 'docker run ubuntu ', cursor: 18 }
+      },
       accepted: [/^ctrl\+w$/i, /^ctrl-w$/i],
       hint: 'Control plus the letter usually used for closing tabs in browsers.',
       solution: 'Ctrl+W',
@@ -66,6 +86,10 @@ const zone = {
       objective: 'Use the readline shortcut that kills backward to line start.',
       inputMode: 'keypress',
       acceptedKeySequences: [['ctrl+u']],
+      lineContext: {
+        initial: { line: 'export API_KEY=abc123 && echo ready', cursor: 22 },
+        expected: { line: '&& echo ready', cursor: 0 }
+      },
       accepted: [/^ctrl\+u$/i, /^ctrl-u$/i],
       hint: 'Control key + u.',
       solution: 'Ctrl+U',
@@ -77,6 +101,10 @@ const zone = {
       objective: 'Use the shortcut that kills forward to line end.',
       inputMode: 'keypress',
       acceptedKeySequences: [['ctrl+k']],
+      lineContext: {
+        initial: { line: 'cd /var/www/my-app && npm run build', cursor: 19 },
+        expected: { line: 'cd /var/www/my-app ', cursor: 19 }
+      },
       accepted: [/^ctrl\+k$/i, /^ctrl-k$/i],
       hint: 'Control key + k.',
       solution: 'Ctrl+K',
@@ -88,6 +116,10 @@ const zone = {
       objective: 'Use the readline shortcut to open the current line in your editor.',
       inputMode: 'keypress',
       acceptedKeySequences: [['ctrl+x', 'ctrl+e']],
+      lineContext: {
+        initial: { line: 'for f in *.log; do echo \"$f\"; done', cursor: 34 },
+        expected: { editorOpened: true }
+      },
       accepted: [/^ctrl\+x\s+ctrl\+e$/i, /^ctrl-x\s+ctrl-e$/i],
       hint: 'It is a two-key sequence starting with Ctrl+X.',
       solution: 'Ctrl+X Ctrl+E',
