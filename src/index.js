@@ -399,6 +399,27 @@ function shortcutTokenFromKeypress(str, key) {
   return '';
 }
 
+function lineDrillTokenFromKeypress(str, key) {
+  const shortcutToken = shortcutTokenFromKeypress(str, key);
+  if (shortcutToken) {
+    return shortcutToken;
+  }
+  if (!key || !key.name) {
+    return '';
+  }
+  if (
+    key.name === 'left'
+    || key.name === 'right'
+    || key.name === 'backspace'
+    || key.name === 'delete'
+    || key.name === 'home'
+    || key.name === 'end'
+  ) {
+    return key.name;
+  }
+  return '';
+}
+
 function formatShortcutToken(token) {
   const normalized = normalizeShortcutToken(token);
   if (!normalized) {
@@ -424,6 +445,268 @@ function formatShortcutToken(token) {
 
 function formatShortcutSequence(sequence) {
   return sequence.map((token) => formatShortcutToken(token)).join(' then ');
+}
+
+function clampCursor(line, cursor) {
+  const n = Number.isInteger(cursor) ? cursor : 0;
+  return Math.max(0, Math.min(line.length, n));
+}
+
+function renderLineWithCursor(line, cursor) {
+  const c = clampCursor(line, cursor);
+  return `${line.slice(0, c)}${paint('|', 'yellow')}${line.slice(c)}`;
+}
+
+function formatLineStateSummary(state) {
+  const cursor = Number.isInteger(state?.cursor) ? state.cursor + 1 : 1;
+  return `"${state?.line || ''}" (cursor column ${cursor})`;
+}
+
+function normalizeSequenceForLineSim(sequence) {
+  const normalized = (sequence || []).map((token) => normalizeShortcutToken(token)).filter(Boolean);
+  const compact = [];
+
+  for (let i = 0; i < normalized.length; i += 1) {
+    const token = normalized[i];
+    const next = normalized[i + 1];
+    if (token === 'escape' && next && next.length === 1) {
+      compact.push(`alt+${next}`);
+      i += 1;
+      continue;
+    }
+    compact.push(token);
+  }
+
+  return compact;
+}
+
+function moveBackwardWord(line, cursor) {
+  let i = clampCursor(line, cursor);
+  while (i > 0 && /\s/.test(line[i - 1])) {
+    i -= 1;
+  }
+  while (i > 0 && !/\s/.test(line[i - 1])) {
+    i -= 1;
+  }
+  return i;
+}
+
+function moveForwardWord(line, cursor) {
+  let i = clampCursor(line, cursor);
+  while (i < line.length && /\s/.test(line[i])) {
+    i += 1;
+  }
+  while (i < line.length && !/\s/.test(line[i])) {
+    i += 1;
+  }
+  return i;
+}
+
+function applyTokenToLineState(state, token) {
+  const t = normalizeShortcutToken(token);
+  if (!t) {
+    return state;
+  }
+
+  if (t === 'ctrl+a') {
+    state.cursor = 0;
+    state.pendingCtrlX = false;
+    return state;
+  }
+  if (t === 'ctrl+e') {
+    if (state.pendingCtrlX) {
+      state.editorOpened = true;
+      state.pendingCtrlX = false;
+      return state;
+    }
+    state.cursor = state.line.length;
+    return state;
+  }
+  if (t === 'alt+b') {
+    state.cursor = moveBackwardWord(state.line, state.cursor);
+    state.pendingCtrlX = false;
+    return state;
+  }
+  if (t === 'alt+f') {
+    state.cursor = moveForwardWord(state.line, state.cursor);
+    state.pendingCtrlX = false;
+    return state;
+  }
+  if (t === 'ctrl+w') {
+    const end = clampCursor(state.line, state.cursor);
+    const start = moveBackwardWord(state.line, end);
+    state.line = `${state.line.slice(0, start)}${state.line.slice(end)}`;
+    state.cursor = start;
+    state.pendingCtrlX = false;
+    return state;
+  }
+  if (t === 'ctrl+u') {
+    const c = clampCursor(state.line, state.cursor);
+    state.line = state.line.slice(c);
+    state.cursor = 0;
+    state.pendingCtrlX = false;
+    return state;
+  }
+  if (t === 'ctrl+k') {
+    const c = clampCursor(state.line, state.cursor);
+    state.line = state.line.slice(0, c);
+    state.cursor = c;
+    state.pendingCtrlX = false;
+    return state;
+  }
+  if (t === 'ctrl+x') {
+    state.pendingCtrlX = true;
+    return state;
+  }
+
+  if (t !== 'escape') {
+    state.pendingCtrlX = false;
+  }
+  return state;
+}
+
+function applyInteractiveTokenToLineState(state, rawToken) {
+  const token = normalizeShortcutToken(rawToken);
+  if (!token) {
+    return null;
+  }
+
+  if (token === 'escape') {
+    state.pendingEscape = true;
+    return 'escape';
+  }
+
+  let normalized = token;
+  if (state.pendingEscape && token.length === 1) {
+    normalized = `alt+${token}`;
+  }
+  state.pendingEscape = false;
+
+  if (normalized === 'left') {
+    state.cursor = clampCursor(state.line, state.cursor - 1);
+    state.pendingCtrlX = false;
+    return normalized;
+  }
+  if (normalized === 'right') {
+    state.cursor = clampCursor(state.line, state.cursor + 1);
+    state.pendingCtrlX = false;
+    return normalized;
+  }
+  if (normalized === 'home') {
+    state.cursor = 0;
+    state.pendingCtrlX = false;
+    return normalized;
+  }
+  if (normalized === 'end') {
+    state.cursor = state.line.length;
+    state.pendingCtrlX = false;
+    return normalized;
+  }
+  if (normalized === 'backspace') {
+    const c = clampCursor(state.line, state.cursor);
+    if (c > 0) {
+      state.line = `${state.line.slice(0, c - 1)}${state.line.slice(c)}`;
+      state.cursor = c - 1;
+    }
+    state.pendingCtrlX = false;
+    return normalized;
+  }
+  if (normalized === 'delete') {
+    const c = clampCursor(state.line, state.cursor);
+    if (c < state.line.length) {
+      state.line = `${state.line.slice(0, c)}${state.line.slice(c + 1)}`;
+    }
+    state.pendingCtrlX = false;
+    return normalized;
+  }
+  if (normalized === 'space') {
+    const c = clampCursor(state.line, state.cursor);
+    state.line = `${state.line.slice(0, c)} ${state.line.slice(c)}`;
+    state.cursor = c + 1;
+    state.pendingCtrlX = false;
+    return normalized;
+  }
+  if (normalized.length === 1) {
+    const c = clampCursor(state.line, state.cursor);
+    state.line = `${state.line.slice(0, c)}${normalized}${state.line.slice(c)}`;
+    state.cursor = c + 1;
+    state.pendingCtrlX = false;
+    return normalized;
+  }
+
+  applyTokenToLineState(state, normalized);
+  return normalized;
+}
+
+function simulateLineContext(challenge, rawSequence) {
+  const initial = challenge.lineContext?.initial || { line: '', cursor: 0 };
+  const state = {
+    line: initial.line || '',
+    cursor: clampCursor(initial.line || '', initial.cursor || 0),
+    pendingCtrlX: false,
+    editorOpened: false
+  };
+
+  const sequence = normalizeSequenceForLineSim(rawSequence);
+  sequence.forEach((token) => {
+    applyTokenToLineState(state, token);
+  });
+
+  return state;
+}
+
+function evaluateLineContext(challenge, rawSequence) {
+  if (!challenge.lineContext) {
+    return { passed: false, state: null };
+  }
+  const expected = challenge.lineContext.expected || {};
+  const state = simulateLineContext(challenge, rawSequence);
+
+  const lineOk = expected.line === undefined ? true : state.line === expected.line;
+  const cursorOk = expected.cursor === undefined ? true : state.cursor === expected.cursor;
+  const editorOk = expected.editorOpened === undefined ? true : state.editorOpened === expected.editorOpened;
+
+  return { passed: lineOk && cursorOk && editorOk, state };
+}
+
+function evaluateLineState(challenge, state) {
+  if (!challenge.lineContext || !state) {
+    return { passed: false, state: state || null };
+  }
+  const expected = challenge.lineContext.expected || {};
+  const lineOk = expected.line === undefined ? true : state.line === expected.line;
+  const cursorOk = expected.cursor === undefined ? true : state.cursor === expected.cursor;
+  const editorOk = expected.editorOpened === undefined ? true : state.editorOpened === expected.editorOpened;
+  return { passed: lineOk && cursorOk && editorOk, state };
+}
+
+function renderLineContext(challenge) {
+  if (!challenge.lineContext) {
+    return;
+  }
+  const initial = challenge.lineContext.initial || { line: '', cursor: 0 };
+  const expected = challenge.lineContext.expected || {};
+
+  console.log(`${paint('Prefilled Line:', 'yellow')} ${initial.line || ''}`);
+  if (expected.editorOpened) {
+    console.log(`${paint('Success Condition:', 'cyan')} Trigger external editor mode from the line.`);
+  } else {
+    if (expected.line !== undefined && expected.line !== initial.line) {
+      console.log(`${paint('Target Line:', 'cyan')} ${expected.line}`);
+    }
+    if (expected.cursor !== undefined) {
+      const cursorText = expected.cursor === 0
+        ? 'cursor at start'
+        : expected.cursor === (expected.line || initial.line || '').length
+          ? 'cursor at end'
+          : `cursor at column ${expected.cursor + 1}`;
+      console.log(`${paint('Cursor Goal:', 'cyan')} ${cursorText}`);
+    }
+    if (expected.line === undefined && expected.cursor === undefined) {
+      console.log(`${paint('Success Condition:', 'cyan')} Apply the target shortcut behavior.`);
+    }
+  }
+  console.log(dim('You will edit a real prompt line below and press Enter to submit.'));
 }
 
 async function captureShortcutSequence(rl, challenge) {
@@ -496,6 +779,102 @@ async function captureShortcutSequence(rl, challenge) {
       }
 
       scheduleIdleResolution();
+    };
+
+    readlineCore.emitKeypressEvents(stdin);
+    stdin.resume();
+    if (!wasRaw) {
+      stdin.setRawMode(true);
+    }
+    stdin.on('keypress', onKeypress);
+  });
+}
+
+async function captureLineContextSession(rl, challenge) {
+  if (!supportsArrowMenus()) {
+    const typed = await ask(rl, '\nshortcut> ');
+    return { mode: 'typed', typed };
+  }
+
+  const initial = challenge.lineContext?.initial || { line: '', cursor: 0 };
+
+  return new Promise((resolve) => {
+    const wasRaw = Boolean(stdin.isRaw);
+    const state = {
+      line: initial.line || '',
+      cursor: clampCursor(initial.line || '', initial.cursor || 0),
+      pendingCtrlX: false,
+      pendingEscape: false,
+      editorOpened: false
+    };
+    let captured = [];
+    const promptLabel = 'linecraft> ';
+
+    const renderPrompt = () => {
+      readlineCore.cursorTo(stdout, 0);
+      readlineCore.clearLine(stdout, 0);
+      stdout.write(`${promptLabel}${state.line}`);
+      readlineCore.cursorTo(stdout, promptLabel.length + clampCursor(state.line, state.cursor));
+    };
+
+    const cleanup = () => {
+      stdin.off('keypress', onKeypress);
+      stdout.write('\n');
+      if (!wasRaw) {
+        stdin.setRawMode(false);
+      }
+    };
+
+    const finish = (result) => {
+      cleanup();
+      resolve(result);
+    };
+
+    console.log();
+    console.log(dim('Line Lab: edit this real prompt line. Enter=submit, Ctrl+R=reset, Ctrl+L=hint, Ctrl+N=skip.'));
+    renderPrompt();
+
+    const onKeypress = (str, key) => {
+      const token = lineDrillTokenFromKeypress(str, key);
+      if (!token) {
+        return;
+      }
+
+      if (token === 'enter') {
+        const finalState = {
+          line: state.line,
+          cursor: state.cursor,
+          editorOpened: state.editorOpened
+        };
+        finish({ mode: 'line-drill', sequence: captured, state: finalState });
+        return;
+      }
+
+      if (token === 'ctrl+l') {
+        finish({ mode: 'control', action: 'hint' });
+        return;
+      }
+      if (token === 'ctrl+n') {
+        finish({ mode: 'control', action: 'skip' });
+        return;
+      }
+      if (token === 'ctrl+r') {
+        state.line = initial.line || '';
+        state.cursor = clampCursor(state.line, initial.cursor || 0);
+        state.pendingCtrlX = false;
+        state.pendingEscape = false;
+        state.editorOpened = false;
+        captured = [];
+        renderPrompt();
+        return;
+      }
+
+      const applied = applyInteractiveTokenToLineState(state, token);
+      if (!applied) {
+        return;
+      }
+      captured.push(applied);
+      renderPrompt();
     };
 
     readlineCore.emitKeypressEvents(stdin);
@@ -1020,7 +1399,9 @@ async function runChallenge(rl, module, challenge, challengeIndex) {
     renderFlavor(module.id, keypressMode ? 'alert' : 'mission', challenge.title);
     console.log();
     const instructionText = keypressMode
-      ? dim('Press the real shortcut now. Press `h` for hint or `k` to skip.')
+      ? challenge.lineContext
+        ? dim('Use the Line Lab prefilled prompt. Edit directly; Enter submits. Ctrl+L=hint, Ctrl+N=skip.')
+        : dim('Press the real shortcut now. Press `h` for hint or `k` to skip.')
       : explainMode
         ? dim('Explain what this command does in your own words. Use `hint` for help or `skip` to reveal.')
         : dim('Type a command. Use `hint` for help or `skip` to reveal solution.');
@@ -1035,12 +1416,18 @@ async function runChallenge(rl, module, challenge, challengeIndex) {
     ];
 
     console.log(box('ACTIVE MISSION', lines, width()));
+    if (keypressMode && challenge.lineContext) {
+      console.log();
+      renderLineContext(challenge);
+    }
     if (attempts > 0) {
       console.log(paint(`\nAttempt ${attempts + 1}/3`, 'yellow'));
     }
 
     if (keypressMode) {
-      const captured = await captureShortcutSequence(rl, challenge);
+      const captured = challenge.lineContext
+        ? await captureLineContextSession(rl, challenge)
+        : await captureShortcutSequence(rl, challenge);
 
       if (captured.mode === 'control' && captured.action === 'hint') {
         console.log(`\n${paint('Hint:', 'magenta')} ${challenge.hint}`);
@@ -1077,6 +1464,26 @@ async function runChallenge(rl, module, challenge, challengeIndex) {
           await pause(rl);
           return { passed: true, attempts: attempts + 1, skipped: false };
         }
+      } else if (challenge.lineContext) {
+        const evaluation = captured.mode === 'line-drill'
+          ? evaluateLineState(challenge, captured.state)
+          : evaluateLineContext(challenge, captured.sequence);
+        if (evaluation.passed) {
+          if (challenge.lineContext.expected?.editorOpened) {
+            console.log(`\n${paint('Correct.', 'green')} Result: editor opened.`);
+          } else if (evaluation.state) {
+            console.log(`\n${paint('Correct.', 'green')} Result: ${formatLineStateSummary(evaluation.state)}`);
+          } else {
+            console.log(`\n${paint('Correct.', 'green')} Context edit successful.`);
+          }
+          console.log(`${paint('Why it matters:', 'cyan')} ${challenge.lesson}`);
+          await pause(rl);
+          return { passed: true, attempts: attempts + 1, skipped: false };
+        }
+        const after = evaluation.state
+          ? formatLineStateSummary(evaluation.state)
+          : 'No valid context result';
+        console.log(`\n${paint('Result after your keys:', 'yellow')} ${after}`);
       } else if (isAcceptedShortcutSequence(challenge, captured.sequence)) {
         console.log(`\n${paint('Correct.', 'green')} Shortcut accepted.`);
         console.log(`${paint('Why it matters:', 'cyan')} ${challenge.lesson}`);
@@ -1251,7 +1658,9 @@ async function runPracticeChallenge(rl, module, challenge, challengeIndex, sandb
     renderFlavor(module.id, sandboxMode ? 'sandbox' : 'coach', challenge.title);
     console.log();
     const instructions = keypressMode
-      ? dim('Press the real shortcut. `h`=hint, `k`=next, or type `show` in fallback mode.')
+      ? challenge.lineContext
+        ? dim('Use the Line Lab prefilled prompt. Edit directly; Enter submits. Ctrl+L=hint, Ctrl+N=next, Ctrl+R=reset.')
+        : dim('Press the real shortcut. `h`=hint, `k`=next, or type `show` in fallback mode.')
       : explainMode
         ? dim('Explain it in your own words. Type `hint`, `show`, or `next`.')
         : sandboxMode
@@ -1273,9 +1682,15 @@ async function runPracticeChallenge(rl, module, challenge, challengeIndex, sandb
       instructions
     ];
     console.log(box('GUIDED PRACTICE', lines, width()));
+    if (keypressMode && challenge.lineContext) {
+      console.log();
+      renderLineContext(challenge);
+    }
 
     if (keypressMode) {
-      const captured = await captureShortcutSequence(rl, challenge);
+      const captured = challenge.lineContext
+        ? await captureLineContextSession(rl, challenge)
+        : await captureShortcutSequence(rl, challenge);
 
       if (captured.mode === 'control' && captured.action === 'hint') {
         console.log(`\n${paint('Hint:', 'magenta')} ${challenge.hint}`);
@@ -1312,6 +1727,25 @@ async function runPracticeChallenge(rl, module, challenge, challengeIndex, sandb
           await pause(rl);
           return true;
         }
+      } else if (challenge.lineContext) {
+        const evaluation = captured.mode === 'line-drill'
+          ? evaluateLineState(challenge, captured.state)
+          : evaluateLineContext(challenge, captured.sequence);
+        if (evaluation.passed) {
+          if (challenge.lineContext.expected?.editorOpened) {
+            console.log(`\n${paint('Nice.', 'green')} Result: editor opened.`);
+          } else if (evaluation.state) {
+            console.log(`\n${paint('Nice.', 'green')} Result: ${formatLineStateSummary(evaluation.state)}`);
+          } else {
+            console.log(`\n${paint('Nice.', 'green')} Context edit complete.`);
+          }
+          await pause(rl);
+          return true;
+        }
+        const after = evaluation.state
+          ? formatLineStateSummary(evaluation.state)
+          : 'No valid context result';
+        console.log(`\n${paint('Result after your keys:', 'yellow')} ${after}`);
       } else if (isAcceptedShortcutSequence(challenge, captured.sequence)) {
         console.log(`\n${paint('Nice.', 'green')} Practice complete.`);
         await pause(rl);
