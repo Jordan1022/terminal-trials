@@ -1,0 +1,13 @@
+{
+  "name": "terminal-trials",
+  "version": "1.0.0",
+  "description": "A terminal game to level up shell and tmux skills.",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "summon": "node src/index.js",
+    "gauntlet": "node src/index.js",
+    "start": "npm run summon"
+  },
+  "license": "MIT"
+}
