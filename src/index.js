@@ -6,11 +6,13 @@ const { stdin, stdout } = require('node:process');
 
 const { modules, codex, rankTiers } = require('./content/index');
 const { paint, bold, dim, clear, line, box, progressBar, banner, flavorArt } = require('./ui');
-const { createSandbox, cleanupSandbox, executeInSandbox } = require('./sandbox');
+const { createSandbox, cleanupSandbox, executeInSandbox, isSafeCommand } = require('./sandbox');
+const { normalizeCommand, isAccepted, feedbackForAnswer } = require('./answerFeedback');
+const { createProgressStore } = require('./progress');
+const { parseTypedMenuChoice, formatTypedMenuLabel } = require('./menu');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const SAVE_PATH = path.join(PROJECT_ROOT, 'save', 'progress.json');
-const GUIDED_FILESYSTEM_SANDBOX_MODULES = new Set(['trailhead', 'pipeline', 'scripting', 'dotfiles']);
+const GUIDED_FILESYSTEM_SANDBOX_MODULES = new Set(['trailhead', 'fieldcraft', 'pipeline', 'scripting', 'dotfiles', 'powertools']);
 const GUIDED_MOCK_SANDBOX_MODULES = new Set(['workflow', 'tmux', 'ssh']);
 
 function rankForXp(xp) {
@@ -48,10 +50,6 @@ function buildNewProgress(name) {
   };
 }
 
-function ensureSaveDir() {
-  fs.mkdirSync(path.dirname(SAVE_PATH), { recursive: true });
-}
-
 function migrateProgress(progress) {
   if (!progress || !progress.moduleState) {
     return progress;
@@ -82,45 +80,14 @@ function migrateProgress(progress) {
   return progress;
 }
 
-function loadProgress() {
-  try {
-    if (!fs.existsSync(SAVE_PATH)) {
-      return null;
-    }
-    return migrateProgress(JSON.parse(fs.readFileSync(SAVE_PATH, 'utf8')));
-  } catch (error) {
-    return null;
-  }
-}
+const progressStore = createProgressStore({
+  projectRoot: PROJECT_ROOT,
+  migrateProgress,
+  rankForXp
+});
 
-function saveProgress(progress) {
-  ensureSaveDir();
-  progress.rank = rankForXp(progress.xp);
-  progress.updatedAt = new Date().toISOString();
-  fs.writeFileSync(SAVE_PATH, JSON.stringify(progress, null, 2));
-}
-
-function normalizeCommand(value) {
-  return value.trim().replace(/\s+/g, ' ');
-}
-
-function isAccepted(answer, acceptedRules) {
-  const normalized = normalizeCommand(answer);
-  const lowered = normalized.toLowerCase();
-
-  return acceptedRules.some((rule) => {
-    if (typeof rule === 'string') {
-      return lowered === normalizeCommand(rule).toLowerCase();
-    }
-    if (rule instanceof RegExp) {
-      return rule.test(normalized);
-    }
-    if (typeof rule === 'function') {
-      return rule(normalized);
-    }
-    return false;
-  });
-}
+const loadProgress = () => progressStore.loadProgress();
+const saveProgress = (progress) => progressStore.saveProgress(progress);
 
 function moduleCompletion(progress) {
   const completed = modules.filter((m) => progress.moduleState[m.id]?.completed).length;
@@ -194,34 +161,6 @@ function nextEnabledIndex(options, start, delta) {
   return start;
 }
 
-function parseTypedMenuChoice(choice, options) {
-  const trimmed = choice.trim();
-  if (!trimmed) {
-    return { value: null, reason: 'invalid' };
-  }
-
-  const byKey = options.find((option) => option.key === trimmed);
-  if (byKey) {
-    if (byKey.disabled) {
-      return { value: null, reason: 'disabled' };
-    }
-    return { value: byKey.value, reason: 'ok' };
-  }
-
-  if (/^\d+$/.test(trimmed)) {
-    const index = Number(trimmed) - 1;
-    if (index >= 0 && index < options.length) {
-      const option = options[index];
-      if (option.disabled) {
-        return { value: null, reason: 'disabled' };
-      }
-      return { value: option.value, reason: 'ok' };
-    }
-  }
-
-  return { value: null, reason: 'invalid' };
-}
-
 async function chooseMenuOption(rl, { render, options, prompt = 'Select: ' }) {
   if (!supportsArrowMenus()) {
     while (true) {
@@ -229,7 +168,7 @@ async function chooseMenuOption(rl, { render, options, prompt = 'Select: ' }) {
       render();
       console.log();
       options.forEach((option) => {
-        console.log(option.label);
+        console.log(option.disabled ? dim(formatTypedMenuLabel(option)) : formatTypedMenuLabel(option));
       });
 
       const typed = await ask(rl, `\n${prompt}`);
@@ -933,6 +872,12 @@ function renderPlayerCard(progress) {
   return box('COMMAND DECK', stats, width());
 }
 
+function difficultyLabel(module) {
+  const colors = { BEGINNER: 'green', INTERMEDIATE: 'yellow', ADVANCED: 'magenta', EXPERT: 'red' };
+  const tier = module.difficulty || 'BEGINNER';
+  return paint(`[${tier}]`, colors[tier] || 'white');
+}
+
 function missionStatus(progress, module) {
   const state = progress.moduleState[module.id];
   if (!state.unlocked) {
@@ -983,6 +928,10 @@ function setupGuidedSandboxFixture(moduleId, sandboxDir) {
     fs.writeFileSync(path.join(sandboxDir, 'src', 'index.js'), 'console.log("hi");\n');
     fs.writeFileSync(path.join(sandboxDir, 'lib', 'util.js'), 'module.exports = {};\n');
     fs.writeFileSync(path.join(sandboxDir, 'README.md'), 'not js\n');
+    fs.writeFileSync(
+      path.join(sandboxDir, 'data.csv'),
+      ['id,name,score', '1,alice,92', '2,bob,88', '3,carol,95'].join('\n') + '\n'
+    );
     return;
   }
 
@@ -1013,6 +962,41 @@ function setupGuidedSandboxFixture(moduleId, sandboxDir) {
     fs.writeFileSync(path.join(sandboxDir, 'build', 'index.html'), '<h1>build</h1>\n');
     return;
   }
+
+  if (moduleId === 'fieldcraft') {
+    fs.writeFileSync(path.join(sandboxDir, 'README.md'), '# Sandbox Project\n\nWelcome to the sandbox.\n');
+    fs.writeFileSync(path.join(sandboxDir, 'notes.txt'), 'meeting notes\n');
+    fs.writeFileSync(path.join(sandboxDir, 'temp.txt'), 'temporary data\n');
+    fs.mkdirSync(path.join(sandboxDir, 'docs'), { recursive: true });
+    const serverLines = Array.from({ length: 25 }, (_, i) => `[${i + 1}] server log entry ${i + 1}`);
+    fs.writeFileSync(path.join(sandboxDir, 'server.log'), serverLines.join('\n') + '\n');
+    const deployLines = Array.from({ length: 15 }, (_, i) => `deploy step ${i + 1}: ok`);
+    fs.writeFileSync(path.join(sandboxDir, 'deploy.log'), deployLines.join('\n') + '\n');
+    fs.writeFileSync(
+      path.join(sandboxDir, 'access.log'),
+      ['10.0.0.1', '10.0.0.2', '10.0.0.1', '10.0.0.3', '10.0.0.2', '10.0.0.1'].join('\n') + '\n'
+    );
+    return;
+  }
+
+  if (moduleId === 'powertools') {
+    fs.writeFileSync(
+      path.join(sandboxDir, 'app.log'),
+      ['INFO boot ok', 'ERROR db timeout', 'INFO retry', 'ERROR connection refused', 'INFO recovered'].join('\n') + '\n'
+    );
+    fs.writeFileSync(
+      path.join(sandboxDir, 'config.txt'),
+      ['# Database config', '# Written by setup.sh', 'host=localhost', 'port=5432', '# End of file'].join('\n') + '\n'
+    );
+    fs.writeFileSync(
+      path.join(sandboxDir, 'access.log'),
+      ['10.0.0.1 GET /api 200 120', '10.0.0.2 POST /api 201 540', '10.0.0.3 GET /health 200 30'].join('\n') + '\n'
+    );
+    fs.writeFileSync(path.join(sandboxDir, 'input.txt'), 'hello world from the terminal\n');
+    fs.writeFileSync(path.join(sandboxDir, 'temp1.tmp'), 'temp\n');
+    fs.writeFileSync(path.join(sandboxDir, 'temp2.tmp'), 'temp\n');
+    return;
+  }
 }
 
 function shouldUseGuidedSandbox(module, challenge) {
@@ -1020,6 +1004,9 @@ function shouldUseGuidedSandbox(module, challenge) {
     return false;
   }
   if (challenge.inputMode) {
+    return false;
+  }
+  if (GUIDED_FILESYSTEM_SANDBOX_MODULES.has(module.id) && !isSafeCommand(challenge.solution || '').safe) {
     return false;
   }
   return true;
@@ -1541,6 +1528,12 @@ async function runChallenge(rl, module, challenge, challengeIndex) {
 
     attempts += 1;
     console.log(`\n${paint('Not quite.', 'red')} Try again.`);
+    if (!explainMode) {
+      const feedback = feedbackForAnswer(answer, challenge);
+      if (feedback) {
+        console.log(`${paint('Coach:', 'cyan')} ${feedback}`);
+      }
+    }
     if (attempts === 2) {
       console.log(`${paint('Tip:', 'magenta')} ${challenge.hint}`);
     }
@@ -1820,6 +1813,10 @@ async function runPracticeChallenge(rl, module, challenge, challengeIndex, sandb
         return true;
       }
       console.log(paint('\nThat command ran, but it is not the target for this drill.', 'red'));
+      const feedback = feedbackForAnswer(answer, challenge);
+      if (feedback) {
+        console.log(`${paint('Coach:', 'cyan')} ${feedback}`);
+      }
       await pause(rl);
       continue;
     }
@@ -1831,6 +1828,12 @@ async function runPracticeChallenge(rl, module, challenge, challengeIndex, sandb
     }
 
     console.log(paint('\nNot yet. Keep practicing or type `show`.', 'red'));
+    if (!explainMode) {
+      const feedback = feedbackForAnswer(answer, challenge);
+      if (feedback) {
+        console.log(`${paint('Coach:', 'cyan')} ${feedback}`);
+      }
+    }
     await pause(rl);
   }
 }
@@ -2095,7 +2098,7 @@ async function expeditionMap(rl, progress) {
       return {
         key: String(index + 1),
         value: module.id,
-        label: `${index + 1}) ${module.name}  ${missionStatus(progress, module)}  ${dim(progressText)}`,
+        label: `${index + 1}) ${module.name}  ${difficultyLabel(module)}  ${missionStatus(progress, module)}  ${dim(progressText)}`,
         disabled: !state.unlocked
       };
     });
@@ -2191,21 +2194,49 @@ async function flashDrills(rl, progress) {
 }
 
 async function showCodex(rl) {
-  clear();
-  renderFlavor(null, 'coach', 'Reference deck loaded.');
-  console.log();
-  console.log(box('COMMAND CODEX', ['Quick reference for high-frequency commands.'], width()));
-
-  let topic = '';
+  const topics = [];
+  const byTopic = new Map();
   for (const entry of codex) {
-    if (entry.topic !== topic) {
-      topic = entry.topic;
-      console.log(`\n${paint(topic, 'yellow')}`);
+    if (!byTopic.has(entry.topic)) {
+      byTopic.set(entry.topic, []);
+      topics.push(entry.topic);
     }
-    console.log(`  ${paint(entry.command, 'cyan')}  ${dim(entry.note)}`);
+    byTopic.get(entry.topic).push(entry);
   }
 
-  await pause(rl);
+  let page = 0;
+  while (true) {
+    const topic = topics[page];
+    const entries = byTopic.get(topic) || [];
+    const choice = await chooseMenuOption(rl, {
+      render: () => {
+        renderFlavor(null, 'coach', `Reference deck: ${topic}`);
+        console.log();
+        console.log(box('COMMAND CODEX', [`Topic ${page + 1}/${topics.length}: ${topic}`, 'Quick reference for high-frequency commands.'], width()));
+        entries.forEach((entry) => {
+          console.log(`  ${paint(entry.command, 'cyan')}  ${dim(entry.note)}`);
+        });
+      },
+      options: [
+        { key: '1', value: 'prev', label: '1) Previous topic', disabled: page === 0 },
+        { key: '2', value: 'next', label: '2) Next topic', disabled: page === topics.length - 1 },
+        { key: '0', value: 'back', label: '0) Back' }
+      ],
+      prompt: 'Choose: '
+    });
+
+    if (choice === 'prev') {
+      page = Math.max(0, page - 1);
+      continue;
+    }
+    if (choice === 'next') {
+      page = Math.min(topics.length - 1, page + 1);
+      continue;
+    }
+    if (choice === 'back') {
+      return;
+    }
+  }
 }
 
 async function showStats(rl, progress) {
@@ -2333,6 +2364,11 @@ async function run() {
 }
 
 run().catch((error) => {
+  if (/Aborted with Ctrl\+C/i.test(error.message || '')) {
+    clear();
+    console.log(paint('Session ended.', 'green'));
+    return;
+  }
   console.error(paint(`Unexpected error: ${error.message}`, 'red'));
   process.exitCode = 1;
 });

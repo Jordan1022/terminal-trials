@@ -11,6 +11,8 @@ const colors = {
   white: '\x1b[37m'
 };
 
+const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
+
 function paint(text, color) {
   return `${colors[color] || ''}${text}${colors.reset}`;
 }
@@ -35,16 +37,134 @@ function line(width = 72) {
   return '-'.repeat(width);
 }
 
+function stripAnsi(text) {
+  return String(text || '').replace(ANSI_PATTERN, '');
+}
+
+function visibleLength(text) {
+  return stripAnsi(text).length;
+}
+
+function padVisible(text, width) {
+  const padding = Math.max(0, width - visibleLength(text));
+  return `${text}${' '.repeat(padding)}`;
+}
+
+function wrapPlainWords(text, width) {
+  const clean = String(text || '');
+  if (!clean) {
+    return [''];
+  }
+
+  const lines = [];
+  for (const paragraph of clean.split('\n')) {
+    let current = '';
+    for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+      if (!current) {
+        current = word;
+      } else if (current.length + 1 + word.length <= width) {
+        current += ` ${word}`;
+      } else {
+        lines.push(current);
+        current = word;
+      }
+
+      while (current.length > width) {
+        lines.push(current.slice(0, width));
+        current = current.slice(width);
+      }
+    }
+    lines.push(current);
+  }
+
+  return lines.length ? lines : [''];
+}
+
+function wrapAnsi(text, width) {
+  const value = String(text || '');
+  if (!value) {
+    return [''];
+  }
+  if (visibleLength(value) <= width) {
+    return [value];
+  }
+
+  if (!ANSI_PATTERN.test(value)) {
+    ANSI_PATTERN.lastIndex = 0;
+    return wrapPlainWords(value, width);
+  }
+  ANSI_PATTERN.lastIndex = 0;
+
+  const firstAnsi = value.match(/^\x1b\[[0-9;]*m/)?.[0];
+  const plain = stripAnsi(value);
+  const ansiCount = value.match(ANSI_PATTERN)?.length || 0;
+  if (firstAnsi && ansiCount <= 2 && value.endsWith(colors.reset)) {
+    return wrapPlainWords(plain, width).map((entry) => `${firstAnsi}${entry}${colors.reset}`);
+  }
+
+  const lines = [];
+  let current = '';
+  let currentVisible = 0;
+  let activeCode = '';
+
+  const flush = () => {
+    if (currentVisible === 0 && !current) {
+      lines.push('');
+    } else {
+      lines.push(activeCode && !current.endsWith(colors.reset) ? `${current}${colors.reset}` : current);
+    }
+    current = activeCode || '';
+    currentVisible = 0;
+  };
+
+  for (let i = 0; i < value.length;) {
+    const rest = value.slice(i);
+    const ansi = rest.match(/^\x1b\[[0-9;]*m/);
+    if (ansi) {
+      const code = ansi[0];
+      current += code;
+      activeCode = code === colors.reset ? '' : code;
+      i += code.length;
+      continue;
+    }
+
+    const char = value[i];
+    i += 1;
+
+    if (char === '\n') {
+      flush();
+      continue;
+    }
+
+    if (currentVisible >= width) {
+      flush();
+    }
+
+    if (char === ' ' && currentVisible === 0) {
+      continue;
+    }
+
+    current += char;
+    currentVisible += 1;
+  }
+
+  if (currentVisible > 0 || !lines.length) {
+    lines.push(activeCode && !current.endsWith(colors.reset) ? `${current}${colors.reset}` : current);
+  }
+
+  return lines;
+}
+
 function box(title, lines, width = 72) {
   const safeWidth = Math.max(width, 40);
   const top = `+${'-'.repeat(safeWidth - 2)}+`;
   const maxInner = safeWidth - 4;
-  const titleText = title.length > maxInner ? `${title.slice(0, maxInner - 3)}...` : title;
-  const header = `| ${bold(titleText)}${' '.repeat(Math.max(0, maxInner - titleText.length))} |`;
+  const titleText = visibleLength(title) > maxInner ? `${stripAnsi(title).slice(0, maxInner - 3)}...` : title;
+  const header = `| ${padVisible(bold(titleText), maxInner)} |`;
   const body = lines
+    .flatMap((entry) => wrapAnsi(entry, maxInner))
     .map((entry) => {
-      const text = entry.length > safeWidth - 4 ? `${entry.slice(0, safeWidth - 7)}...` : entry;
-      return `| ${text.padEnd(safeWidth - 4)} |`;
+      return `| ${padVisible(entry, maxInner)} |`;
     })
     .join('\n');
 
@@ -79,6 +199,7 @@ function zoneBadge(moduleId) {
   const badges = {
     trailhead: ['[Trailhead]', 'Path Scout'],
     linecraft: ['[Linecraft]', 'Cursor Ninja'],
+    fieldcraft: ['[Fieldcraft]', 'File Scout'],
     pipeline: ['[Pipeline]', 'Text Smith'],
     workflow: ['[Workflow]', 'Ops Pilot'],
     tmux: ['[tmux]', 'Pane Tactician'],
@@ -86,7 +207,9 @@ function zoneBadge(moduleId) {
     jobcontrol: ['[Job Control]', 'Process Wrangler'],
     ssh: ['[SSH]', 'Remote Runner'],
     vim: ['[vim]', 'Modal Monk'],
-    dotfiles: ['[Dotfiles]', 'Shell Stylist']
+    dotfiles: ['[Dotfiles]', 'Shell Stylist'],
+    powertools: ['[Power Tools]', 'Text Alchemist'],
+    bash_advanced: ['[Bash Mastery]', 'Script Sentinel']
   };
   return badges[moduleId] || ['[Terminal]', 'Command Adventurer'];
 }
@@ -123,8 +246,12 @@ module.exports = {
   clear,
   sleep,
   line,
+  stripAnsi,
+  visibleLength,
+  wrapAnsi,
   box,
   progressBar,
   banner,
+  zoneBadge,
   flavorArt
 };
