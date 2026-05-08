@@ -1,6 +1,7 @@
 const zone = {
   id: 'dotfiles',
   name: 'Home Base: Environment & Dotfiles',
+  difficulty: 'ADVANCED',
   tagline: 'Make your terminal yours.',
   description:
     'Configure your shell with aliases, PATH extensions, environment variables, and dotfile management.',

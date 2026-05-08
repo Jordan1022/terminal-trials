@@ -1,6 +1,7 @@
 const zone = {
   id: 'tmux',
   name: 'Citadel: tmux Mastery',
+  difficulty: 'ADVANCED',
   tagline: 'Run multi-pane workflows without losing context.',
   description:
     'Learn sessions, panes, copy-mode selection, detach/attach flow, and fast tmux control habits.',

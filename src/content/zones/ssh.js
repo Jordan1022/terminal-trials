@@ -1,6 +1,7 @@
 const zone = {
   id: 'ssh',
   name: 'Outpost: SSH & Remote Ops',
+  difficulty: 'ADVANCED',
   tagline: 'Reach any machine from your terminal.',
   description:
     'Learn secure connections, key generation, file transfers, directory syncing, and SSH tunnels.',

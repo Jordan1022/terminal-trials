@@ -1,6 +1,7 @@
 const zone = {
   id: 'linecraft',
   name: 'Linecraft Dojo: Cursor Mastery',
+  difficulty: 'BEGINNER',
   tagline: 'Edit commands at speed without retyping.',
   description:
     'Master shell line editing: jump to start/end, move by word, cut text, and handle multi-line edits.',

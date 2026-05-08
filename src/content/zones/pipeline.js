@@ -1,6 +1,7 @@
 const zone = {
   id: 'pipeline',
   name: 'Pipeline Forge: Text Ops',
+  difficulty: 'INTERMEDIATE',
   tagline: 'Turn raw output into precise answers.',
   description:
     'Practice filtering, counting, sorting, and redirecting output like a power user.',
@@ -55,15 +56,55 @@ const zone = {
       hint: 'find with a name pattern piped into line count.',
       solution: 'find . -name "*.js" | wc -l',
       lesson: '`find` + `wc -l` is a classic pattern for reliable inventory counts.'
+    },
+    {
+      title: 'Redirect to File',
+      scenario: 'You need to capture only the WARNING lines from app.log into a separate file called warnings.txt.',
+      objective: 'Search app.log for WARN and redirect the output into warnings.txt.',
+      accepted: [
+        /^grep\s+(['"])?WARN\1\s+app\.log\s*>\s*warnings\.txt$/i,
+        /^rg\s+(['"])?WARN\1\s+app\.log\s*>\s*warnings\.txt$/i
+      ],
+      hint: 'Use grep then > to redirect stdout to a file.',
+      solution: 'grep "WARN" app.log > warnings.txt',
+      lesson: '`>` redirects stdout to a file, overwriting it. `>>` appends instead. Use `>` when building a fresh output, `>>` when adding to an existing log.'
+    },
+    {
+      title: 'Search Recursively',
+      scenario: 'You need to find every TODO comment scattered across all files in the src/ directory.',
+      objective: 'Search for the string TODO in every file under src/ recursively.',
+      accepted: [
+        /^grep\s+-r\s+(['"])?TODO\1\s+src\/?$/i,
+        /^rg\s+(['"])?TODO\1\s+src\/?$/i,
+        /^grep\s+-r\s+(['"])?TODO\1\s+src\/$/i
+      ],
+      hint: 'grep has a flag to search directories recursively.',
+      solution: 'grep -r "TODO" src/',
+      lesson: '`grep -r` recurses into subdirectories. `rg` does this by default and is much faster in large codebases. Add `-l` to list only the matching filenames.'
+    },
+    {
+      title: 'Cut a Column',
+      scenario: 'data.csv has comma-separated fields. You only need the second column (names).',
+      objective: 'Use cut to extract the second comma-delimited field from data.csv.',
+      accepted: [
+        /^cut\s+-d,\s+-f2\s+data\.csv$/i,
+        /^cut\s+-d\s+,\s+-f2\s+data\.csv$/i
+      ],
+      hint: 'cut takes a delimiter flag and a field number.',
+      solution: 'cut -d, -f2 data.csv',
+      lesson: '`cut -d, -f2` splits each line on `,` and returns field 2. Use `-f1,3` for multiple fields or `-f2-4` for a range. Lighter-weight than awk for simple field extraction.'
     }
   ]
 };
 
 const codexEntries = [
   { topic: 'Search', command: 'grep "text" file', note: 'Search text in file.' },
+  { topic: 'Search', command: 'grep -r "text" dir/', note: 'Recursive search in directory.' },
   { topic: 'Search', command: 'rg "text"', note: 'Fast recursive search.' },
   { topic: 'Pipes', command: 'cmd1 | cmd2', note: 'Send output of one command to another.' },
-  { topic: 'Output', command: 'echo "x" >> log.txt', note: 'Append output to file.' }
+  { topic: 'Output', command: 'cmd > file.txt', note: 'Redirect stdout to file (overwrite).' },
+  { topic: 'Output', command: 'echo "x" >> log.txt', note: 'Append output to file.' },
+  { topic: 'Fields', command: 'cut -d, -f2 file', note: 'Extract comma-delimited field 2.' }
 ];
 
 module.exports = { zone, codexEntries };

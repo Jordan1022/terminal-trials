@@ -1,6 +1,7 @@
 const zone = {
   id: 'jobcontrol',
   name: 'Command Tower: Job Control',
+  difficulty: 'INTERMEDIATE',
   tagline: 'Juggle processes without losing your place.',
   description:
     'Master suspending, resuming, and backgrounding processes to run multiple tasks from a single terminal.',

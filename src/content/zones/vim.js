@@ -1,6 +1,7 @@
 const zone = {
   id: 'vim',
   name: 'The Editor: Vim Basics',
+  difficulty: 'INTERMEDIATE',
   tagline: 'Edit files without leaving the terminal.',
   description:
     'Learn vim modes, navigation, editing, saving, and searching — enough to handle any terminal editing task.',

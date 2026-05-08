@@ -6,7 +6,9 @@ const rankTiers = [
   { xp: 580, title: 'Pane Commander' },
   { xp: 800, title: 'Script Architect' },
   { xp: 1050, title: 'Remote Operator' },
-  { xp: 1350, title: 'Terminal Grandmaster' }
+  { xp: 1350, title: 'Terminal Grandmaster' },
+  { xp: 1650, title: 'Stream Processor' },
+  { xp: 2000, title: 'Shell Grandmaster' }
 ];
 
 module.exports = { rankTiers };

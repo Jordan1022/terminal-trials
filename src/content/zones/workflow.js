@@ -1,6 +1,7 @@
 const zone = {
   id: 'workflow',
   name: 'Ops Deck: Shell Workflow',
+  difficulty: 'INTERMEDIATE',
   tagline: 'Control processes, permissions, and environment state.',
   description:
     'Build practical operations instincts: process checks, kill signals, chmod, archives, and exports.',

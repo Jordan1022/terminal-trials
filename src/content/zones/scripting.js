@@ -1,6 +1,7 @@
 const zone = {
   id: 'scripting',
   name: 'Script Forge: Shell Scripting',
+  difficulty: 'INTERMEDIATE',
   tagline: 'Automate anything with bash scripts.',
   description:
     'Learn variables, conditionals, loops, functions, and exit codes to turn repetitive tasks into reusable scripts.',
@@ -94,6 +95,52 @@ const zone = {
       hint: '$? holds a number. What does that number represent?',
       solution: 'Prints the exit status of the last executed command (0 = success, non-zero = error).',
       lesson: '$? is essential for error handling in scripts. Always check it after critical commands.'
+    },
+    {
+      title: 'Enable Strict Mode',
+      scenario: 'You are writing a production deploy script and want it to stop immediately on any error.',
+      objective: 'Write the single line that enables bash strict mode with exit-on-error, unbound variable detection, and pipe failure propagation.',
+      accepted: [
+        /^set\s+-euo\s+pipefail$/i,
+        /^set\s+-e\s+-u\s+-o\s+pipefail$/i
+      ],
+      hint: 'Three options: -e, -u, and -o pipefail.',
+      solution: 'set -euo pipefail',
+      lesson: '`set -euo pipefail` is the standard bash strict mode header. `-e` exits on error, `-u` catches unset variables, `-o pipefail` ensures pipe failures are not silently swallowed.'
+    },
+    {
+      title: 'Redirect Stderr',
+      inputMode: 'explain',
+      scenario: 'A script redirects its output like this:',
+      objective: 'Explain what 2>&1 does in: command > output.log 2>&1',
+      accepted: [
+        (answer) => {
+          const a = answer.toLowerCase();
+          const hasStderr = /stderr|standard error|error output|fd\s*2/i.test(a);
+          const hasStdout = /stdout|standard output|fd\s*1|same|combine|merge|redirect/i.test(a);
+          return hasStderr && hasStdout;
+        }
+      ],
+      hint: 'Think about file descriptors: 1 is stdout, 2 is stderr.',
+      solution: 'Redirects stderr (file descriptor 2) to the same destination as stdout (file descriptor 1), so both streams go to output.log.',
+      lesson: '`2>&1` merges stderr into stdout. Order matters: write `> file 2>&1`, not `2>&1 > file`. In bash 4+, use `&>` as shorthand: `command &> output.log`.'
+    },
+    {
+      title: 'Default Parameter Value',
+      inputMode: 'explain',
+      scenario: 'A teammate uses this in a script to handle a missing environment variable:',
+      objective: 'Explain: ${ENV:-production}',
+      accepted: [
+        (answer) => {
+          const a = answer.toLowerCase();
+          const hasDefault = /default|fallback|fall back/i.test(a);
+          const hasUnset = /unset|not set|empty|undefined|missing/i.test(a);
+          return hasDefault && hasUnset;
+        }
+      ],
+      hint: 'Think about what happens when ENV is set vs when it is not set.',
+      solution: 'Returns the value of ENV if set and non-empty, otherwise returns the default value "production".',
+      lesson: '`${VAR:-default}` is parameter expansion with a fallback. Use `${VAR:=default}` to also assign the default back to VAR. These patterns make scripts resilient to missing configuration.'
     }
   ]
 };
@@ -105,7 +152,10 @@ const codexEntries = [
   { topic: 'Scripting', command: 'if [ -f file ]; then', note: 'Test if file exists.' },
   { topic: 'Scripting', command: 'for f in *.log; do', note: 'Loop over matching files.' },
   { topic: 'Scripting', command: 'func() { ...; }', note: 'Define a shell function.' },
-  { topic: 'Scripting', command: 'echo $?', note: 'Print last command exit status.' }
+  { topic: 'Scripting', command: 'echo $?', note: 'Print last command exit status.' },
+  { topic: 'Scripting', command: 'set -euo pipefail', note: 'Enable strict error mode.' },
+  { topic: 'Scripting', command: 'cmd > out.log 2>&1', note: 'Redirect stderr to stdout.' },
+  { topic: 'Scripting', command: '${VAR:-default}', note: 'Use default if VAR is unset.' }
 ];
 
 module.exports = { zone, codexEntries };

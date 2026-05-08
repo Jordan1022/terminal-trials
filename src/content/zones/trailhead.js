@@ -1,6 +1,7 @@
 const zone = {
   id: 'trailhead',
   name: 'Trailhead: Navigation',
+  difficulty: 'BEGINNER',
   tagline: 'Move fast and never feel lost in a terminal again.',
   description:
     'Learn location awareness, listing files, changing directories, and creating filesystem scaffolding.',
@@ -49,6 +50,33 @@ const zone = {
       hint: 'A common command for creating empty files also updates timestamps.',
       solution: 'touch notes.md',
       lesson: '`touch` is the fastest way to create placeholders or update modified times.'
+    },
+    {
+      title: 'Jump Home',
+      scenario: 'You are deep in a nested project directory and need to get back to your home directory instantly.',
+      objective: 'Change to your home directory.',
+      accepted: ['cd', 'cd ~', /^cd\s+\$HOME$/i],
+      hint: 'cd with no arguments, or cd followed by a special shortcut for home.',
+      solution: 'cd ~',
+      lesson: '`cd` with no argument, `cd ~`, and `cd $HOME` all navigate to your home directory. `~` is a shell shortcut that always expands to your home path.'
+    },
+    {
+      title: 'Go Up a Level',
+      scenario: 'You are inside a subdirectory and need to move to the parent directory.',
+      objective: 'Navigate up one directory level.',
+      accepted: ['cd ..'],
+      hint: 'Two dots represent the parent directory.',
+      solution: 'cd ..',
+      lesson: '`..` always means "one level up". You can chain them: `cd ../..` goes up two levels. `.` means the current directory.'
+    },
+    {
+      title: 'Check Disk Usage',
+      scenario: 'You want a quick summary of how much disk space the current directory is using.',
+      objective: 'Show the total disk usage of the current directory in human-readable format.',
+      accepted: [/^du\s+-sh\s+\.$/i, /^du\s+-hs\s+\.$/i],
+      hint: 'Use du with flags for summary and human-readable output.',
+      solution: 'du -sh .',
+      lesson: '`du -sh .` summarizes disk usage for the current directory. Use `du -sh *` to see each item separately. This is one of the most-used commands in everyday terminal work.'
     }
   ]
 };
@@ -57,8 +85,11 @@ const codexEntries = [
   { topic: 'Navigation', command: 'pwd', note: 'Print working directory.' },
   { topic: 'Navigation', command: 'ls -la', note: 'Long list including hidden files.' },
   { topic: 'Navigation', command: 'cd <dir>', note: 'Change current directory.' },
+  { topic: 'Navigation', command: 'cd ~', note: 'Go to home directory.' },
+  { topic: 'Navigation', command: 'cd ..', note: 'Go up one directory level.' },
   { topic: 'Files', command: 'mkdir -p a/b/c', note: 'Create nested directories.' },
-  { topic: 'Files', command: 'touch file.txt', note: 'Create empty file/update timestamp.' }
+  { topic: 'Files', command: 'touch file.txt', note: 'Create empty file/update timestamp.' },
+  { topic: 'Files', command: 'du -sh .', note: 'Show directory disk usage (human-readable).' }
 ];
 
 module.exports = { zone, codexEntries };
